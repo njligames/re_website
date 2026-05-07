@@ -1,0 +1,132 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   _lead_form.html  —  reusable lead capture form
+   Include with:  {% include "_lead_form.html" %}
+   Optional context variable:  form_property_address  (pre-fills the hidden address field)
+───────────────────────────────────────────────────────────────────────────── #}
+
+<div class="card shadow border-warning">
+  <div class="card-header bg-warning text-dark">
+    <h3 class="h5 fw-bold mb-0">🏡 Get Your Free Home Valuation</h3>
+  </div>
+  <div class="card-body p-4">
+    <p class="text-muted small mb-3">
+      Find out what your home is worth in today's market.
+      No cost, no obligation — just honest local expertise.
+    </p>
+
+    <div id="lead-form-wrap">
+      <form id="lead-capture-form" novalidate>
+        <input type="hidden" name="address"
+               value="{{ form_property_address or (prop.address ~ ', ' ~ prop.city ~ ', NY ' ~ prop.zip if prop is defined else '') }}">
+        <input type="hidden" name="lead_type" value="valuation">
+
+        <div class="mb-3">
+          <label for="lead-name" class="form-label fw-semibold">Your Name *</label>
+          <input type="text" class="form-control" id="lead-name" name="name"
+                 placeholder="Jane Smith" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="lead-email" class="form-label fw-semibold">Email Address *</label>
+          <input type="email" class="form-control" id="lead-email" name="email"
+                 placeholder="jane@example.com" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="lead-phone" class="form-label fw-semibold">Phone Number</label>
+          <input type="tel" class="form-control" id="lead-phone" name="phone"
+                 placeholder="(631) 555-0000">
+        </div>
+
+        <div class="mb-3">
+          <label for="lead-timeline" class="form-label fw-semibold">
+            When are you thinking of selling?
+          </label>
+          <select class="form-select" id="lead-timeline" name="timeline">
+            <option value="">Select a timeline…</option>
+            <option value="ASAP">As soon as possible</option>
+            <option value="1-3 months">1 – 3 months</option>
+            <option value="3-6 months">3 – 6 months</option>
+            <option value="6-12 months">6 – 12 months</option>
+            <option value="Just curious">Just curious about the value</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="lead-message" class="form-label fw-semibold">
+            Anything else we should know?
+          </label>
+          <textarea class="form-control" id="lead-message" name="message"
+                    rows="3" placeholder="Optional…"></textarea>
+        </div>
+
+        <div id="lead-form-error" class="alert alert-danger d-none small"></div>
+
+        <button type="submit" class="btn btn-warning btn-lg fw-bold w-100">
+          Request My Free Valuation
+        </button>
+
+        <p class="text-muted small text-center mt-2 mb-0">
+          We'll call you back within 15 minutes during business hours.
+        </p>
+      </form>
+    </div>
+
+    {# Success state (hidden until form submits) #}
+    <div id="lead-form-success" class="d-none text-center py-3">
+      <div class="display-4 mb-2">✅</div>
+      <h4 class="fw-bold">Thank you!</h4>
+      <p class="text-muted">
+        We received your request and will be in touch shortly.
+        Expect a call from <strong>{{ broker.name }}</strong> at
+        <strong>{{ broker.phone }}</strong>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const form    = document.getElementById('lead-capture-form');
+  const wrap    = document.getElementById('lead-form-wrap');
+  const success = document.getElementById('lead-form-success');
+  const errBox  = document.getElementById('lead-form-error');
+
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    errBox.classList.add('d-none');
+
+    const data = {};
+    new FormData(form).forEach((v, k) => { data[k] = v; });
+
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    try {
+      const res = await fetch('/api/leads', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        wrap.classList.add('d-none');
+        success.classList.remove('d-none');
+      } else {
+        errBox.textContent = json.error || 'Something went wrong. Please try again.';
+        errBox.classList.remove('d-none');
+        btn.disabled = false;
+        btn.textContent = 'Request My Free Valuation';
+      }
+    } catch {
+      errBox.textContent = 'Network error. Please try again.';
+      errBox.classList.remove('d-none');
+      btn.disabled = false;
+      btn.textContent = 'Request My Free Valuation';
+    }
+  });
+})();
+</script>

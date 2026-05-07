@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",
+      "item": "{{ site_domain }}/" },
+    { "@type": "ListItem", "position": 2,
+      "name": "{{ area.name }}, NY" }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+{# ── Breadcrumb ── #}
+<div class="bg-light border-bottom py-2">
+  <div class="container">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0 small">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ area.name }}</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+{# ── Area hero ── #}
+<section class="area-hero py-4 py-md-5 bg-white border-bottom">
+  <div class="container">
+    <h1 class="display-6 fw-bold mb-2">
+      {{ area.name }}, NY &mdash; Home Values &amp; Real Estate
+    </h1>
+    <p class="text-muted fs-5 mb-4">
+      Browse {{ "{:,}".format(stats.total or 0) }} properties in {{ area.name }}.
+      {% if stats.avg_value %}
+        Average home value {{ fmt_currency(stats.avg_value) }}.
+      {% endif %}
+    </p>
+
+    {# Stats row #}
+    {% if stats.total %}
+    <div class="row g-3 mb-2">
+      <div class="col-6 col-md-3">
+        <div class="stat-box text-center p-3 border rounded bg-light">
+          <div class="stat-value fw-bold fs-4">{{ "{:,}".format(stats.total) }}</div>
+          <div class="stat-label text-muted small">Total Properties</div>
+        </div>
+      </div>
+      {% if stats.avg_value %}
+      <div class="col-6 col-md-3">
+        <div class="stat-box text-center p-3 border rounded bg-light">
+          <div class="stat-value fw-bold fs-4 text-success">{{ fmt_currency(stats.avg_value) }}</div>
+          <div class="stat-label text-muted small">Avg Market Value</div>
+        </div>
+      </div>
+      {% endif %}
+      {% if stats.min_value %}
+      <div class="col-6 col-md-3">
+        <div class="stat-box text-center p-3 border rounded bg-light">
+          <div class="stat-value fw-bold fs-4">{{ fmt_currency(stats.min_value) }}</div>
+          <div class="stat-label text-muted small">Lowest Value</div>
+        </div>
+      </div>
+      {% endif %}
+      {% if stats.max_value %}
+      <div class="col-6 col-md-3">
+        <div class="stat-box text-center p-3 border rounded bg-light">
+          <div class="stat-value fw-bold fs-4">{{ fmt_currency(stats.max_value) }}</div>
+          <div class="stat-label text-muted small">Highest Value</div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% if stats.sold_last_year %}
+    <p class="text-muted small mt-2">
+      {{ stats.sold_last_year }} properties sold in the last 12 months.
+    </p>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+
+{# ── Property listings ── #}
+<section class="py-4 py-md-5">
+  <div class="container">
+    <div class="row g-4">
+
+      {# Property grid #}
+      <div class="col-lg-8">
+        <h2 class="h4 fw-bold mb-3">
+          Properties in {{ area.name }}
+          <span class="text-muted fw-normal small">
+            (page {{ page_num }} of {{ total_pages }})
+          </span>
+        </h2>
+
+        {% if props %}
+        <div class="row g-3">
+          {% for p in props %}
+          <div class="col-sm-6">
+            <a href="{{ url_for('property_page', slug=p.slug) }}"
+               class="card h-100 text-decoration-none property-card">
+              <div class="card-body">
+                <p class="fw-semibold mb-1">{{ p.address }}</p>
+                <p class="text-muted small mb-2">{{ p.city }}, NY {{ p.zip }}</p>
+                <p class="fw-bold text-success mb-1">{{ fmt_currency(p.full_market_value) }}</p>
+                <p class="text-muted small mb-0">
+                  {{ fmt_class(p.property_class) }}
+                  {% if p.last_sale_date %}
+                  &mdash; sold {{ p.last_sale_date.strftime('%Y') if p.last_sale_date else '' }}
+                  {% endif %}
+                </p>
+              </div>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+
+        {# Pagination #}
+        {% if total_pages > 1 %}
+        <nav class="mt-4" aria-label="Page navigation">
+          <ul class="pagination justify-content-center">
+            {% if page_num > 1 %}
+            <li class="page-item">
+              <a class="page-link"
+                 href="{{ url_for('area_page', slug=area.slug, page=page_num-1) }}">
+                &laquo; Previous
+              </a>
+            </li>
+            {% endif %}
+
+            {% for p in range([1, page_num-2]|max, [total_pages+1, page_num+3]|min) %}
+            <li class="page-item {% if p == page_num %}active{% endif %}">
+              <a class="page-link"
+                 href="{{ url_for('area_page', slug=area.slug, page=p) }}">{{ p }}</a>
+            </li>
+            {% endfor %}
+
+            {% if page_num < total_pages %}
+            <li class="page-item">
+              <a class="page-link"
+                 href="{{ url_for('area_page', slug=area.slug, page=page_num+1) }}">
+                Next &raquo;
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <p class="text-muted">No properties found for this area.</p>
+        {% endif %}
+      </div>
+
+      {# Sidebar: broker + lead form #}
+      <div class="col-lg-4">
+        {% include "_broker_card.html" %}
+        <div class="mt-4" id="lead-form">
+          {% include "_lead_form.html" %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{% endblock %}

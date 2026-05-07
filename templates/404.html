@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container text-center py-5">
+  <h1 class="display-1 fw-bold text-muted">404</h1>
+  <h2 class="mb-3">Property Not Found</h2>
+  <p class="text-muted mb-4">
+    We couldn't find that page. Try searching for the address below.
+  </p>
+  <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+    ← Back to Home
+  </a>
+</div>
+{% endblock %}

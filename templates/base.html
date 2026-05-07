@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  {# ── SEO: Title & Description ── #}
+  <title>{{ page_title }}</title>
+  <meta name="description" content="{{ meta_description }}">
+  {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+
+  {# ── Open Graph (Facebook / LinkedIn previews) ── #}
+  <meta property="og:type"        content="website">
+  <meta property="og:title"       content="{{ page_title }}">
+  <meta property="og:description" content="{{ meta_description }}">
+  <meta property="og:url"         content="{{ canonical or site_domain }}">
+  <meta property="og:site_name"   content="{{ site_name }}">
+
+  {# ── Twitter Card ── #}
+  <meta name="twitter:card"        content="summary">
+  <meta name="twitter:title"       content="{{ page_title }}">
+  <meta name="twitter:description" content="{{ meta_description }}">
+
+  {# ── Structured Data: LocalBusiness (every page) ── #}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "RealEstateAgent",
+    "name": "{{ broker.name }}",
+    "description": "{{ broker.tagline }}",
+    "telephone": "{{ broker.phone }}",
+    "email": "{{ broker.email }}",
+    "address": {
+      "@type": "PostalAddress",
+      "addressRegion": "NY",
+      "addressCountry": "US"
+    },
+    "url": "{{ site_domain }}"
+  }
+  </script>
+
+  {% block structured_data %}{% endblock %}
+
+  {# ── Bootstrap 5 ── #}
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossorigin="anonymous">
+
+  {# ── Custom styles ── #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  {# ── Per-page stylesheet override ──
+       In any template: {% block extra_css %}<link rel="stylesheet" href="...">{% endblock %}
+  #}
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+{# ── Nav ── #}
+<nav class="navbar navbar-expand-lg navbar-dark bg-navy">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+      🏠 {{ site_name }}
+    </a>
+    <button class="navbar-toggler" type="button"
+            data-bs-toggle="collapse" data-bs-target="#navMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMenu">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+        </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#"
+             data-bs-toggle="dropdown">Areas</a>
+          <ul class="dropdown-menu">
+            {% for area in nav_areas %}
+            <li>
+              <a class="dropdown-item"
+                 href="{{ url_for('area_page', slug=area.slug) }}">
+                {{ area.name }}
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link btn btn-outline-light btn-sm px-3 ms-2"
+             href="#lead-form">Get Free Valuation</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+{# ── Page content ── #}
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+{# ── Footer ── #}
+<footer class="bg-dark text-light py-5 mt-5">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-md-4">
+        <h5 class="fw-bold">{{ broker.name }}</h5>
+        <p class="mb-1 small">{{ broker.title }}</p>
+        <p class="mb-1 small text-muted">{{ broker.license }}</p>
+        <p class="mb-1 small">{{ broker.brokerage }}</p>
+        <p class="mb-0 small">
+          <a href="tel:{{ broker.phone }}" class="text-light">{{ broker.phone }}</a><br>
+          <a href="mailto:{{ broker.email }}" class="text-light">{{ broker.email }}</a>
+        </p>
+      </div>
+      <div class="col-md-4">
+        <h6 class="fw-bold">Browse by Area</h6>
+        <ul class="list-unstyled small">
+          {% for area in nav_areas %}
+          <li>
+            <a href="{{ url_for('area_page', slug=area.slug) }}"
+               class="text-light text-decoration-none">{{ area.name }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="col-md-4">
+        <h6 class="fw-bold">About This Site</h6>
+        <p class="small text-muted">
+          Property assessment data for the Town of Brookhaven, Suffolk County, NY.
+          Values shown are based on public assessment records. For a personalized
+          market analysis, contact {{ broker.name }} directly.
+        </p>
+        <p class="small text-muted mb-0">
+          Data sourced from NY State Open Data. Updated quarterly.
+        </p>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4">
+    <p class="text-center text-muted small mb-0">
+      &copy; {{ now.year }} {{ broker.name }} &mdash; {{ broker.license }} &mdash;
+      {{ broker.brokerage }}
+    </p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmLZsRO+90cg6A5RXwC5MBFoZNEI"
+        crossorigin="anonymous"></script>
+
+{% block scripts %}{% endblock %}
+
+{# Inject nav_areas into every request via context processor #}
+</body>
+</html>

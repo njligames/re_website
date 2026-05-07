@@ -1,0 +1,270 @@
+/*
+ * Brookhaven Property Website — Custom Styles
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Bootstrap 5 handles the responsive grid and base components.
+ * This file adds brand colours, component overrides, and per-page themes.
+ *
+ * HOW TO CUSTOMISE PER PAGE
+ * ─────────────────────────
+ * Each page has its own clearly labelled section below.
+ * To restyle just one page, edit only that section.
+ * To replace styles entirely for a page, add a <link> tag at the end of
+ * that page's template that loads a second stylesheet — it will override
+ * anything here for that page only.
+ *
+ * SECTIONS
+ *   1. CSS Variables (brand colours & typography)
+ *   2. Global / shared components
+ *   3. Homepage  (index.html)
+ *   4. Property page  (property.html)
+ *   5. Area page  (area.html)
+ *   6. Lead form partial  (_lead_form.html)
+ *   7. Broker card partial  (_broker_card.html)
+ *   8. Navigation & footer
+ *   9. Utility helpers
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   1. CSS VARIABLES — change these to re-theme the whole site
+   ════════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Brand palette */
+  --color-navy:        #0b2545;   /* navbar / dark bg */
+  --color-primary:     #1a6fc4;   /* links, buttons */
+  --color-accent:      #f5a623;   /* CTA buttons (warning yellow) */
+  --color-success:     #198754;   /* price values */
+  --color-light-bg:    #f8f9fa;   /* section alternating bg */
+
+  /* Typography */
+  --font-body:         'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-size-base:    1rem;
+
+  /* Spacing */
+  --section-padding-y: 3.5rem;
+
+  /* Cards */
+  --card-border-radius: 0.5rem;
+  --card-shadow:        0 2px 8px rgba(0,0,0,.08);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   2. GLOBAL / SHARED
+   ════════════════════════════════════════════════════════════════════════════ */
+body {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  color: #212529;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  border-color:     var(--color-primary);
+}
+
+.btn-primary:hover {
+  background-color: #155a9e;
+  border-color:     #155a9e;
+}
+
+.text-success {
+  color: var(--color-success) !important;
+}
+
+section {
+  padding-top:    var(--section-padding-y);
+  padding-bottom: var(--section-padding-y);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   3. HOMEPAGE  (index.html)
+   — Edit this section to restyle the homepage only.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Hero banner */
+.hero-section {
+  background: linear-gradient(135deg, var(--color-navy) 0%, #1a6fc4 100%);
+  min-height: 340px;
+  display: flex;
+  align-items: center;
+}
+
+/* Area cards */
+.area-card {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: transform .15s ease, box-shadow .15s ease;
+  color: #212529;
+  border: 1px solid #dee2e6;
+}
+
+.area-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Feature icons on homepage */
+.feature-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   4. PROPERTY PAGE  (property.html)
+   — Edit this section to restyle individual property pages only.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Hero section at top of property page */
+.property-hero {
+  background-color: #fff;
+  border-bottom: 2px solid var(--color-accent);
+}
+
+/* Details table */
+.property-page table.table th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Nearby property cards */
+.property-card {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: transform .15s ease, box-shadow .15s ease;
+  color: #212529;
+  border: 1px solid #dee2e6;
+}
+
+.property-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,.1);
+  border-color: var(--color-primary);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   5. AREA PAGE  (area.html)
+   — Edit this section to restyle hamlet/area pages only.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.area-hero {
+  background-color: #fff;
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.stat-box {
+  border-radius: var(--card-border-radius);
+  background-color: var(--color-light-bg);
+}
+
+.stat-value {
+  color: var(--color-primary);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   6. LEAD FORM PARTIAL  (_lead_form.html)
+   — Edit this section to restyle the lead capture form wherever it appears.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* The card wrapping the form */
+.card.border-warning {
+  border-width: 2px !important;
+  border-radius: var(--card-border-radius);
+  box-shadow: 0 4px 20px rgba(245,166,35,.2);
+}
+
+/* CTA submit button */
+.card.border-warning .btn-warning {
+  background-color: var(--color-accent);
+  border-color:     var(--color-accent);
+  color:            #000;
+  font-size:        1.05rem;
+  letter-spacing:   .02em;
+}
+
+.card.border-warning .btn-warning:hover {
+  background-color: #e0941a;
+  border-color:     #e0941a;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   7. BROKER CARD PARTIAL  (_broker_card.html)
+   — Edit this section to restyle the broker profile card wherever it appears.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.broker-card {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.broker-photo {
+  object-fit: cover;
+  border: 3px solid var(--color-accent);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   8. NAVIGATION & FOOTER
+   — Edit this section to restyle the nav bar and footer.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.bg-navy {
+  background-color: var(--color-navy) !important;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: rgba(255,255,255,.85);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+  color: #fff;
+}
+
+footer h5,
+footer h6 {
+  color: #f8f9fa;
+}
+
+footer a {
+  color: rgba(255,255,255,.75);
+  text-decoration: none;
+}
+
+footer a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   9. UTILITY HELPERS
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Search results dropdown */
+#search-results {
+  position: absolute;
+  z-index: 1000;
+  width: 100%;
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: 0 0 var(--card-border-radius) var(--card-border-radius);
+}
+
+/* Responsive table scroll on small screens */
+@media (max-width: 575.98px) {
+  .table-responsive-sm {
+    overflow-x: auto;
+  }
+}

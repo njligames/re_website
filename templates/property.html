@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SingleFamilyResidence",
+  "name": "{{ full_address }}",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "{{ prop.address }}",
+    "addressLocality": "{{ prop.city }}",
+    "addressRegion": "{{ prop.state or 'NY' }}",
+    "postalCode": "{{ prop.zip }}",
+    "addressCountry": "US"
+  }
+  {% if prop.latitude and prop.longitude %},
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude":  {{ prop.latitude }},
+    "longitude": {{ prop.longitude }}
+  }
+  {% endif %}
+  {% if prop.full_market_value %},
+  "offers": {
+    "@type": "Offer",
+    "priceCurrency": "USD",
+    "price": {{ prop.full_market_value }}
+  }
+  {% endif %}
+}
+</script>
+
+{# Breadcrumb schema #}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home",
+      "item": "{{ site_domain }}/" },
+    {% if prop.city %}
+    { "@type": "ListItem", "position": 2, "name": "{{ prop.city }}",
+      "item": "{{ site_domain }}/search?q={{ prop.city | urlencode }}" },
+    {% endif %}
+    { "@type": "ListItem", "position": 3, "name": "{{ prop.address }}" }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+{# ── Breadcrumb ── #}
+<div class="bg-light border-bottom py-2">
+  <div class="container">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0 small">
+        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+        {% if prop.zip %}
+        <li class="breadcrumb-item">
+          <a href="{{ url_for('search') }}?q={{ prop.zip }}">{{ prop.zip }}</a>
+        </li>
+        {% endif %}
+        <li class="breadcrumb-item active" aria-current="page">{{ prop.address }}</li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+{# ── Property hero ── #}
+<section class="property-hero py-4 py-md-5 bg-white border-bottom">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <h1 class="display-6 fw-bold mb-1">{{ prop.address }}</h1>
+        <p class="text-muted fs-5 mb-3">
+          {{ prop.city }}{% if prop.city %}, {% endif %}{{ prop.state or 'NY' }} {{ prop.zip }}
+        </p>
+        {% if prop.full_market_value %}
+        <div class="d-flex align-items-baseline gap-3 flex-wrap">
+          <div>
+            <span class="text-muted small d-block">Estimated Market Value</span>
+            <span class="display-6 fw-bold text-success">
+              {{ fmt_currency(prop.full_market_value) }}
+            </span>
+          </div>
+          {% if prop.assessed_value %}
+          <div>
+            <span class="text-muted small d-block">Assessed Value</span>
+            <span class="fs-4 fw-semibold text-secondary">
+              {{ fmt_currency(prop.assessed_value) }}
+            </span>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="col-lg-5">
+        <div class="card border-warning shadow-sm">
+          <div class="card-body text-center p-4">
+            <h4 class="fw-bold mb-1">Get Your Free Home Valuation</h4>
+            <p class="text-muted small mb-3">
+              Find out what <strong>{{ prop.address }}</strong> is worth on
+              today's market — no obligation, no cost.
+            </p>
+            <a href="#lead-form" class="btn btn-warning btn-lg fw-bold w-100">
+              Request Free Valuation ↓
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── Property details ── #}
+<section class="py-4 py-md-5">
+  <div class="container">
+    <div class="row g-4">
+
+      {# Details table #}
+      <div class="col-lg-7">
+        <h2 class="h4 fw-bold mb-3">Property Details</h2>
+        <table class="table table-bordered table-hover">
+          <tbody>
+            <tr>
+              <th class="bg-light" width="40%">Full Address</th>
+              <td>{{ full_address }}</td>
+            </tr>
+            {% if prop.parcel_id %}
+            <tr>
+              <th class="bg-light">Parcel ID</th>
+              <td><code>{{ prop.parcel_id }}</code></td>
+            </tr>
+            {% endif %}
+            {% if prop.property_class %}
+            <tr>
+              <th class="bg-light">Property Type</th>
+              <td>{{ fmt_class(prop.property_class) }}
+                <span class="text-muted small">(class {{ prop.property_class }})</span>
+              </td>
+            </tr>
+            {% endif %}
+            {% if prop.full_market_value %}
+            <tr>
+              <th class="bg-light">Market Value</th>
+              <td class="fw-bold text-success">{{ fmt_currency(prop.full_market_value) }}</td>
+            </tr>
+            {% endif %}
+            {% if prop.assessed_value %}
+            <tr>
+              <th class="bg-light">Assessed Value</th>
+              <td>{{ fmt_currency(prop.assessed_value) }}</td>
+            </tr>
+            {% endif %}
+            {% if prop.land_value %}
+            <tr>
+              <th class="bg-light">Land Value</th>
+              <td>{{ fmt_currency(prop.land_value) }}</td>
+            </tr>
+            {% endif %}
+            {% if prop.lot_size %}
+            <tr>
+              <th class="bg-light">Lot Size</th>
+              <td>{{ "{:,.0f}".format(prop.lot_size) }} sq ft</td>
+            </tr>
+            {% endif %}
+            {% if prop.square_feet %}
+            <tr>
+              <th class="bg-light">Living Area</th>
+              <td>{{ "{:,}".format(prop.square_feet) }} sq ft</td>
+            </tr>
+            {% endif %}
+            {% if prop.beds %}
+            <tr>
+              <th class="bg-light">Bedrooms</th>
+              <td>{{ prop.beds }}</td>
+            </tr>
+            {% endif %}
+            {% if prop.baths %}
+            <tr>
+              <th class="bg-light">Bathrooms</th>
+              <td>
+                {{ prop.baths }}{% if prop.half_baths %} full,
+                {{ prop.half_baths }} half{% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            {% if prop.year_built %}
+            <tr>
+              <th class="bg-light">Year Built</th>
+              <td>{{ prop.year_built }}</td>
+            </tr>
+            {% endif %}
+            {% if prop.last_sale_price %}
+            <tr>
+              <th class="bg-light">Last Sale Price</th>
+              <td>{{ fmt_currency(prop.last_sale_price) }}</td>
+            </tr>
+            {% endif %}
+            {% if prop.last_sale_date %}
+            <tr>
+              <th class="bg-light">Last Sale Date</th>
+              <td>{{ prop.last_sale_date.strftime('%B %d, %Y') if prop.last_sale_date else '—' }}</td>
+            </tr>
+            {% endif %}
+            {% if prop.owner_name %}
+            <tr>
+              <th class="bg-light">Owner of Record</th>
+              <td>{{ prop.owner_name }}</td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+
+        {# MLS data badge if available #}
+        {% if prop.listing_status %}
+        <div class="alert alert-info small">
+          <strong>MLS Status:</strong> {{ prop.listing_status }}
+          {% if prop.list_price %} &mdash; Listed at {{ fmt_currency(prop.list_price) }}{% endif %}
+          {% if prop.days_on_market %} &mdash; {{ prop.days_on_market }} days on market{% endif %}
+          {% if prop.list_agent_name %} &mdash; Agent: {{ prop.list_agent_name }}{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {# Broker card sidebar #}
+      <div class="col-lg-5">
+        {% include "_broker_card.html" %}
+
+        {% if prop.latitude and prop.longitude %}
+        <div class="mt-3 text-muted small">
+          <strong>Coordinates:</strong>
+          {{ "%.5f"|format(prop.latitude) }}, {{ "%.5f"|format(prop.longitude) }}
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ── Lead form ── #}
+<section class="py-4 py-md-5 bg-light" id="lead-form">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        {% include "_lead_form.html" %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── Nearby properties ── #}
+{% if nearby %}
+<section class="py-4 py-md-5">
+  <div class="container">
+    <h2 class="h4 fw-bold mb-3">Nearby Properties</h2>
+    <div class="row g-3">
+      {% for p in nearby %}
+      <div class="col-sm-6 col-lg-4">
+        <a href="{{ url_for('property_page', slug=p.slug) }}"
+           class="card h-100 text-decoration-none property-card">
+          <div class="card-body">
+            <p class="fw-semibold mb-1">{{ p.address }}</p>
+            <p class="text-muted small mb-2">{{ p.city }}, NY {{ p.zip }}</p>
+            <p class="fw-bold text-success mb-0">{{ fmt_currency(p.full_market_value) }}</p>
+            <p class="text-muted small mb-0">{{ fmt_class(p.property_class) }}</p>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}

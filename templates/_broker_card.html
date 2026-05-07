@@ -1,0 +1,41 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   _broker_card.html  —  broker profile card
+   Include with:  {% include "_broker_card.html" %}
+───────────────────────────────────────────────────────────────────────────── #}
+
+<div class="card broker-card shadow-sm">
+  <div class="card-body p-4 text-center">
+
+    {# Broker photo #}
+    {% set photo_path = 'img/' ~ broker.photo %}
+    <img src="{{ url_for('static', filename=photo_path) }}"
+         alt="Photo of {{ broker.name }}"
+         class="broker-photo rounded-circle mb-3"
+         width="120" height="120"
+         onerror="this.src='https://placehold.co/120x120/0d6efd/white?text={{ broker.name[:2] | upper }}'">
+
+    <h3 class="h5 fw-bold mb-0">{{ broker.name }}</h3>
+    <p class="text-muted small mb-1">{{ broker.title }}</p>
+    <p class="text-muted small mb-1">{{ broker.brokerage }}</p>
+    <p class="text-muted small mb-3">{{ broker.license }}</p>
+
+    <p class="small mb-3 fst-italic text-secondary">
+      "{{ broker.tagline }}"
+    </p>
+
+    <div class="d-grid gap-2">
+      <a href="tel:{{ broker.phone }}"
+         class="btn btn-primary fw-semibold">
+        📞 {{ broker.phone }}
+      </a>
+      <a href="mailto:{{ broker.email }}"
+         class="btn btn-outline-primary">
+        ✉️ {{ broker.email }}
+      </a>
+      <a href="#lead-form"
+         class="btn btn-warning fw-semibold">
+        Get Free Valuation
+      </a>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "{{ site_name }}",
+  "url": "{{ site_domain }}",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "{{ site_domain }}/search?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+{# ── Hero ── #}
+<section class="hero-section text-white text-center py-5">
+  <div class="container py-3">
+    <h1 class="display-5 fw-bold mb-2">
+      What Is Your Brookhaven Home Worth?
+    </h1>
+    <p class="lead mb-4">
+      Search {{ "{:,}".format(total_properties) }} properties across the Town of Brookhaven, NY.
+      Get a free, no-obligation home valuation from a local expert.
+    </p>
+
+    {# Search bar #}
+    <div class="row justify-content-center">
+      <div class="col-md-7">
+        <div class="input-group input-group-lg shadow">
+          <input type="text" id="search-input" class="form-control"
+                 placeholder="Enter an address, street, or ZIP code…"
+                 autocomplete="off">
+          <button class="btn btn-warning fw-bold px-4" id="search-btn">Search</button>
+        </div>
+        <ul id="search-results" class="list-group text-start mt-1 shadow-sm d-none"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── Area cards ── #}
+<section class="py-5 bg-light">
+  <div class="container">
+    <h2 class="text-center fw-bold mb-1">Browse by Neighborhood</h2>
+    <p class="text-center text-muted mb-4">
+      Click any area to see all properties and market statistics.
+    </p>
+    <div class="row g-3">
+      {% for area in areas %}
+      <div class="col-sm-6 col-md-4 col-lg-3">
+        <a href="{{ url_for('area_page', slug=area.slug) }}"
+           class="card h-100 text-decoration-none area-card">
+          <div class="card-body">
+            <h5 class="card-title mb-1">{{ area.name }}</h5>
+            <p class="card-text text-muted small mb-2">
+              {{ "{:,}".format(area.total or 0) }} properties
+            </p>
+            {% if area.avg_value %}
+            <p class="card-text fw-bold text-success mb-0">
+              Avg {{ fmt_currency(area.avg_value) }}
+            </p>
+            {% endif %}
+            {% if area.sold_last_year %}
+            <p class="card-text text-muted small mb-0">
+              {{ area.sold_last_year }} sold in past 12 mo.
+            </p>
+            {% endif %}
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ── Recent sales ── #}
+{% if recent %}
+<section class="py-5">
+  <div class="container">
+    <h2 class="fw-bold mb-4">Recent Sales</h2>
+    <div class="row g-3">
+      {% for p in recent %}
+      <div class="col-sm-6 col-lg-4">
+        <a href="{{ url_for('property_page', slug=p.slug) }}"
+           class="card h-100 text-decoration-none property-card">
+          <div class="card-body">
+            <p class="card-title fw-semibold mb-1">{{ p.address }}</p>
+            <p class="text-muted small mb-2">{{ p.city }}, NY {{ p.zip }}</p>
+            <p class="fw-bold text-success mb-0">{{ fmt_currency(p.full_market_value) }}</p>
+            {% if p.last_sale_date %}
+            <p class="text-muted small mb-0">
+              Sold {{ p.last_sale_date.strftime('%b %Y') if p.last_sale_date else '' }}
+            </p>
+            {% endif %}
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ── Lead form ── #}
+<section class="py-5 bg-light" id="lead-form">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        {% include "_lead_form.html" %}
+      </div>
+      <div class="col-lg-4 offset-lg-1 d-flex align-items-center">
+        {% include "_broker_card.html" %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── Why local expertise ── #}
+<section class="py-5">
+  <div class="container">
+    <div class="row g-4 text-center">
+      <div class="col-md-4">
+        <div class="feature-icon mb-3">🏡</div>
+        <h5 class="fw-bold">Local Market Knowledge</h5>
+        <p class="text-muted">
+          Deep expertise across every Brookhaven hamlet — from Patchogue to
+          Port Jefferson to Rocky Point.
+        </p>
+      </div>
+      <div class="col-md-4">
+        <div class="feature-icon mb-3">📊</div>
+        <h5 class="fw-bold">Data-Driven Valuations</h5>
+        <p class="text-muted">
+          Assessment records, recent sales, and market trends combined into
+          one accurate picture of your home's value.
+        </p>
+      </div>
+      <div class="col-md-4">
+        <div class="feature-icon mb-3">⚡</div>
+        <h5 class="fw-bold">Fast Response</h5>
+        <p class="text-muted">
+          Every inquiry gets a personal call-back within 15 minutes during
+          business hours.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const input   = document.getElementById('search-input');
+const results = document.getElementById('search-results');
+const btn     = document.getElementById('search-btn');
+let timer;
+
+function doSearch() {
+  const q = input.value.trim();
+  if (q.length < 3) { results.classList.add('d-none'); return; }
+  fetch('/search?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(data => {
+      results.innerHTML = '';
+      if (!data.length) {
+        results.innerHTML = '<li class="list-group-item text-muted">No results found.</li>';
+      } else {
+        data.forEach(p => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item list-group-item-action';
+          li.innerHTML = `<a href="/property/${p.slug}" class="text-decoration-none text-dark">
+            <strong>${p.address}</strong>
+            <span class="text-muted ms-2 small">${p.city}, NY ${p.zip}</span>
+          </a>`;
+          results.appendChild(li);
+        });
+      }
+      results.classList.remove('d-none');
+    });
+}
+
+input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(doSearch, 250); });
+btn.addEventListener('click', doSearch);
+document.addEventListener('click', e => {
+  if (!e.target.closest('#search-input') && !e.target.closest('#search-results')) {
+    results.classList.add('d-none');
+  }
+});
+</script>
+{% endblock %}
