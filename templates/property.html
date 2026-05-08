@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block extra_css %}
-{% if prop.latitude and prop.longitude and not google_maps_key %}
+{% if prop.latitude and prop.longitude %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 {% endif %}
@@ -292,39 +292,6 @@
 
 {% block scripts %}
 {% if prop.latitude and prop.longitude %}
-  {% if google_maps_key %}
-<script>
-(function () {
-  const lat = {{ prop.latitude }};
-  const lng = {{ prop.longitude }};
-
-  function initMap() {
-    const position = { lat, lng };
-    const map = new google.maps.Map(document.getElementById('property-map'), {
-      zoom: 17,
-      center: position,
-      mapTypeControl: true,
-      streetViewControl: true,
-      fullscreenControl: true,
-    });
-    const marker = new google.maps.Marker({
-      position,
-      map,
-      title: '{{ prop.address | replace("'", "\\'") }}',
-    });
-    const infoWindow = new google.maps.InfoWindow({
-      content: '<strong>{{ prop.address }}</strong><br>{{ prop.city }}, NY {{ prop.zip }}',
-    });
-    marker.addListener('click', () => infoWindow.open(map, marker));
-    infoWindow.open(map, marker);
-  }
-  window.initMap = initMap;
-})();
-</script>
-<script
-  src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_key }}&callback=initMap"
-  async defer></script>
-  {% else %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
 <script>
@@ -344,6 +311,5 @@
     .openPopup();
 })();
 </script>
-  {% endif %}
 {% endif %}
 {% endblock %}
