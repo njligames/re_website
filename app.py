@@ -32,10 +32,10 @@ DATABASE_URL = os.environ.get(
 )
 
 BROKER = {
-    "name":        "Your Name",           # ← replace
+    "name":        "James Folk",           # ← replace
     "title":       "Licensed Real Estate Salesperson",
     "license":     "NY License #000000",  # ← replace
-    "phone":       "(631) 555-0000",      # ← replace
+    "phone":       "(631) 327-0064",      # ← replace
     "email":       "you@yourdomain.com",  # ← replace
     "photo":       "broker.jpg",          # drop file in static/img/
     "brokerage":   "Your Brokerage Name", # ← replace

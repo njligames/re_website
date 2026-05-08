@@ -2,5 +2,6 @@
 __pycache__/
 *.pyc
 *.pyo
-static/img/broker.jpg
 .env
+.DS_Store
+.claude
