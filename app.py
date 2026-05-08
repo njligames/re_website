@@ -19,6 +19,7 @@ import math
 import smtplib
 import logging
 import threading
+import requests as http_requests
 from email.message import EmailMessage
 from datetime import datetime, timezone
 from flask import (
@@ -51,64 +52,99 @@ SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "http://localhost:5000")  # no trail
 
 PROPERTIES_PER_PAGE = 30
 
-# ── Email / SMTP ──────────────────────────────────────────────────────────────
-# Set these environment variables to enable lead notification emails.
+# ── Email ─────────────────────────────────────────────────────────────────────
+# SendGrid (recommended — works on all servers, free 100 emails/day):
+#   SENDGRID_API_KEY  — API key from app.sendgrid.com/settings/api_keys
+#   NOTIFY_EMAIL      — where to send lead alerts
+#   NOTIFY_FROM       — verified sender address in SendGrid (defaults to NOTIFY_EMAIL)
 #
-#   SMTP_HOST     — e.g. smtp.gmail.com
-#   SMTP_PORT     — e.g. 587 (STARTTLS) or 465 (SSL)
-#   SMTP_USER     — your login address
-#   SMTP_PASSWORD — app password (Gmail) or SMTP password
-#   NOTIFY_EMAIL  — where to send lead alerts (defaults to SMTP_USER)
+# SMTP fallback (useful for local dev, may be blocked on cloud servers):
+#   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, NOTIFY_EMAIL
+
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
+NOTIFY_EMAIL     = os.environ.get("NOTIFY_EMAIL", "")
+NOTIFY_FROM      = os.environ.get("NOTIFY_FROM", NOTIFY_EMAIL)
 
 SMTP_HOST     = os.environ.get("SMTP_HOST", "")
 SMTP_PORT     = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER     = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-NOTIFY_EMAIL  = os.environ.get("NOTIFY_EMAIL", SMTP_USER)
 
-if not SMTP_HOST:
-    logging.warning("SMTP_HOST not set — lead email notifications are disabled.")
+if not SENDGRID_API_KEY and not SMTP_HOST:
+    logging.warning("No email config found — lead notifications are disabled. "
+                    "Set SENDGRID_API_KEY or SMTP_HOST.")
 
 
-def _smtp_send(lead: dict) -> None:
-    """Blocking SMTP send — called from a daemon thread."""
+def _build_body(lead: dict) -> str:
+    return "\n".join([
+        f"Name:     {lead['name']}",
+        f"Email:    {lead['email']}",
+        f"Phone:    {lead.get('phone') or '—'}",
+        f"Address:  {lead.get('address') or '—'}",
+        f"Timeline: {lead.get('timeline') or '—'}",
+        f"Message:  {lead.get('message') or '—'}",
+        f"Type:     {lead.get('lead_type', 'valuation')}",
+    ])
+
+
+def _sendgrid_send(subject: str, body: str) -> None:
+    resp = http_requests.post(
+        "https://api.sendgrid.com/v3/mail/send",
+        headers={
+            "Authorization": f"Bearer {SENDGRID_API_KEY}",
+            "Content-Type":  "application/json",
+        },
+        json={
+            "personalizations": [{"to": [{"email": NOTIFY_EMAIL}]}],
+            "from":    {"email": NOTIFY_FROM},
+            "subject": subject,
+            "content": [{"type": "text/plain", "value": body}],
+        },
+        timeout=10,
+    )
+    if resp.status_code not in (200, 202):
+        raise RuntimeError(f"SendGrid {resp.status_code}: {resp.text}")
+
+
+def _smtp_send(subject: str, body: str) -> None:
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"]    = SMTP_USER
+    msg["To"]      = NOTIFY_EMAIL
+    msg.set_content(body)
+
+    if SMTP_PORT == 465:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as s:
+            s.login(SMTP_USER, SMTP_PASSWORD)
+            s.send_message(msg)
+    else:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as s:
+            s.ehlo()
+            s.starttls()
+            s.login(SMTP_USER, SMTP_PASSWORD)
+            s.send_message(msg)
+
+
+def _do_send(lead: dict) -> None:
+    """Try SendGrid first, fall back to SMTP. Called from a daemon thread."""
+    subject = f"New Lead: {lead['name']} — {lead.get('address') or 'no address'}"
+    body    = _build_body(lead)
     try:
-        msg = EmailMessage()
-        msg["Subject"] = f"New Lead: {lead['name']} — {lead.get('address') or 'no address'}"
-        msg["From"]    = SMTP_USER
-        msg["To"]      = NOTIFY_EMAIL
-
-        body_lines = [
-            f"Name:     {lead['name']}",
-            f"Email:    {lead['email']}",
-            f"Phone:    {lead.get('phone') or '—'}",
-            f"Address:  {lead.get('address') or '—'}",
-            f"Timeline: {lead.get('timeline') or '—'}",
-            f"Message:  {lead.get('message') or '—'}",
-            f"Type:     {lead.get('lead_type', 'valuation')}",
-        ]
-        msg.set_content("\n".join(body_lines))
-
-        if SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as s:
-                s.login(SMTP_USER, SMTP_PASSWORD)
-                s.send_message(msg)
-        else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as s:
-                s.ehlo()
-                s.starttls()
-                s.login(SMTP_USER, SMTP_PASSWORD)
-                s.send_message(msg)
+        if SENDGRID_API_KEY and NOTIFY_EMAIL:
+            _sendgrid_send(subject, body)
+        elif SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL:
+            _smtp_send(subject, body)
     except Exception:
         logging.exception("Failed to send lead notification email")
 
 
 def send_lead_email(lead: dict) -> None:
     """Dispatch email in a background thread so the HTTP response is never delayed."""
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL):
+    if not NOTIFY_EMAIL:
         return
-    t = threading.Thread(target=_smtp_send, args=(lead,), daemon=True)
-    t.start()
+    if not (SENDGRID_API_KEY or (SMTP_HOST and SMTP_USER and SMTP_PASSWORD)):
+        return
+    threading.Thread(target=_do_send, args=(lead,), daemon=True).start()
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -435,38 +471,33 @@ def capture_lead():
 
 @app.route("/api/test-email")
 def test_email():
-    """Hit this URL to test SMTP config. Returns a JSON report."""
+    """Hit this URL to test email config. Returns a JSON report. Remove before going public."""
     report = {
-        "SMTP_HOST":    SMTP_HOST     or "(not set)",
-        "SMTP_PORT":    SMTP_PORT,
-        "SMTP_USER":    SMTP_USER     or "(not set)",
-        "SMTP_PASSWORD": "set" if SMTP_PASSWORD else "(not set)",
-        "NOTIFY_EMAIL": NOTIFY_EMAIL  or "(not set)",
+        "backend":          "sendgrid" if SENDGRID_API_KEY else "smtp",
+        "SENDGRID_API_KEY": "set" if SENDGRID_API_KEY else "(not set)",
+        "NOTIFY_EMAIL":     NOTIFY_EMAIL  or "(not set)",
+        "NOTIFY_FROM":      NOTIFY_FROM   or "(not set)",
+        "SMTP_HOST":        SMTP_HOST     or "(not set)",
+        "SMTP_PORT":        SMTP_PORT,
+        "SMTP_USER":        SMTP_USER     or "(not set)",
+        "SMTP_PASSWORD":    "set" if SMTP_PASSWORD else "(not set)",
     }
 
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL):
-        report["result"] = "SKIPPED — one or more required env vars are missing"
-        return jsonify(report)
-
     try:
-        msg = EmailMessage()
-        msg["Subject"] = "Test email from Brookhaven lead site"
-        msg["From"]    = SMTP_USER
-        msg["To"]      = NOTIFY_EMAIL
-        msg.set_content("This is a test email. SMTP is working correctly.")
-
-        if SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as s:
-                s.login(SMTP_USER, SMTP_PASSWORD)
-                s.send_message(msg)
+        if SENDGRID_API_KEY and NOTIFY_EMAIL:
+            _sendgrid_send(
+                "Test email from Brookhaven lead site",
+                "This is a test. SendGrid is working correctly.",
+            )
+            report["result"] = "OK — sent via SendGrid"
+        elif SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL:
+            _smtp_send(
+                "Test email from Brookhaven lead site",
+                "This is a test. SMTP is working correctly.",
+            )
+            report["result"] = "OK — sent via SMTP"
         else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as s:
-                s.ehlo()
-                s.starttls()
-                s.login(SMTP_USER, SMTP_PASSWORD)
-                s.send_message(msg)
-
-        report["result"] = "OK — email sent successfully"
+            report["result"] = "SKIPPED — no complete email config found"
     except Exception as exc:
         report["result"] = f"FAILED — {type(exc).__name__}: {exc}"
 
