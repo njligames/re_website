@@ -53,26 +53,27 @@ SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "http://localhost:5000")  # no trail
 PROPERTIES_PER_PAGE = 30
 
 # ── Email ─────────────────────────────────────────────────────────────────────
-# SendGrid (recommended — works on all servers, free 100 emails/day):
-#   SENDGRID_API_KEY  — API key from app.sendgrid.com/settings/api_keys
-#   NOTIFY_EMAIL      — where to send lead alerts
-#   NOTIFY_FROM       — verified sender address in SendGrid (defaults to NOTIFY_EMAIL)
+# Resend (https://resend.com — free 3,000 emails/month):
+#   RESEND_API_KEY  — API key from resend.com/api-keys
+#   NOTIFY_EMAIL    — where to send lead alerts
+#   NOTIFY_FROM     — verified sender address (defaults to "leads@resend.dev"
+#                     which works without domain setup during testing)
 #
-# SMTP fallback (useful for local dev, may be blocked on cloud servers):
-#   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, NOTIFY_EMAIL
+# SMTP fallback (local dev only — may be blocked on cloud servers):
+#   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
 
-SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
-NOTIFY_EMAIL     = os.environ.get("NOTIFY_EMAIL", "")
-NOTIFY_FROM      = os.environ.get("NOTIFY_FROM", NOTIFY_EMAIL)
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+NOTIFY_EMAIL   = os.environ.get("NOTIFY_EMAIL", "")
+NOTIFY_FROM    = os.environ.get("NOTIFY_FROM", "leads@resend.dev")
 
 SMTP_HOST     = os.environ.get("SMTP_HOST", "")
 SMTP_PORT     = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER     = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
-if not SENDGRID_API_KEY and not SMTP_HOST:
+if not RESEND_API_KEY and not SMTP_HOST:
     logging.warning("No email config found — lead notifications are disabled. "
-                    "Set SENDGRID_API_KEY or SMTP_HOST.")
+                    "Set RESEND_API_KEY.")
 
 
 def _build_body(lead: dict) -> str:
@@ -87,23 +88,23 @@ def _build_body(lead: dict) -> str:
     ])
 
 
-def _sendgrid_send(subject: str, body: str) -> None:
+def _resend_send(subject: str, body: str) -> None:
     resp = http_requests.post(
-        "https://api.sendgrid.com/v3/mail/send",
+        "https://api.resend.com/emails",
         headers={
-            "Authorization": f"Bearer {SENDGRID_API_KEY}",
+            "Authorization": f"Bearer {RESEND_API_KEY}",
             "Content-Type":  "application/json",
         },
         json={
-            "personalizations": [{"to": [{"email": NOTIFY_EMAIL}]}],
-            "from":    {"email": NOTIFY_FROM},
+            "from":    NOTIFY_FROM,
+            "to":      [NOTIFY_EMAIL],
             "subject": subject,
-            "content": [{"type": "text/plain", "value": body}],
+            "text":    body,
         },
         timeout=10,
     )
-    if resp.status_code not in (200, 202):
-        raise RuntimeError(f"SendGrid {resp.status_code}: {resp.text}")
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Resend {resp.status_code}: {resp.text}")
 
 
 def _smtp_send(subject: str, body: str) -> None:
@@ -126,12 +127,12 @@ def _smtp_send(subject: str, body: str) -> None:
 
 
 def _do_send(lead: dict) -> None:
-    """Try SendGrid first, fall back to SMTP. Called from a daemon thread."""
+    """Try Resend first, fall back to SMTP. Called from a daemon thread."""
     subject = f"New Lead: {lead['name']} — {lead.get('address') or 'no address'}"
     body    = _build_body(lead)
     try:
-        if SENDGRID_API_KEY and NOTIFY_EMAIL:
-            _sendgrid_send(subject, body)
+        if RESEND_API_KEY and NOTIFY_EMAIL:
+            _resend_send(subject, body)
         elif SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL:
             _smtp_send(subject, body)
     except Exception:
@@ -142,7 +143,7 @@ def send_lead_email(lead: dict) -> None:
     """Dispatch email in a background thread so the HTTP response is never delayed."""
     if not NOTIFY_EMAIL:
         return
-    if not (SENDGRID_API_KEY or (SMTP_HOST and SMTP_USER and SMTP_PASSWORD)):
+    if not (RESEND_API_KEY or (SMTP_HOST and SMTP_USER and SMTP_PASSWORD)):
         return
     threading.Thread(target=_do_send, args=(lead,), daemon=True).start()
 
@@ -473,29 +474,29 @@ def capture_lead():
 def test_email():
     """Hit this URL to test email config. Returns a JSON report. Remove before going public."""
     report = {
-        "backend":          "sendgrid" if SENDGRID_API_KEY else "smtp",
-        "SENDGRID_API_KEY": "set" if SENDGRID_API_KEY else "(not set)",
-        "NOTIFY_EMAIL":     NOTIFY_EMAIL  or "(not set)",
-        "NOTIFY_FROM":      NOTIFY_FROM   or "(not set)",
-        "SMTP_HOST":        SMTP_HOST     or "(not set)",
-        "SMTP_PORT":        SMTP_PORT,
-        "SMTP_USER":        SMTP_USER     or "(not set)",
-        "SMTP_PASSWORD":    "set" if SMTP_PASSWORD else "(not set)",
+        "backend":        "resend" if RESEND_API_KEY else "smtp",
+        "RESEND_API_KEY": "set" if RESEND_API_KEY else "(not set)",
+        "NOTIFY_EMAIL":   NOTIFY_EMAIL or "(not set)",
+        "NOTIFY_FROM":    NOTIFY_FROM  or "(not set)",
+        "SMTP_HOST":      SMTP_HOST    or "(not set)",
+        "SMTP_PORT":      SMTP_PORT,
+        "SMTP_USER":      SMTP_USER    or "(not set)",
+        "SMTP_PASSWORD":  "set" if SMTP_PASSWORD else "(not set)",
     }
 
     try:
-        if SENDGRID_API_KEY and NOTIFY_EMAIL:
-            _sendgrid_send(
+        if RESEND_API_KEY and NOTIFY_EMAIL:
+            _resend_send(
                 "Test email from Brookhaven lead site",
-                "This is a test. SendGrid is working correctly.",
+                "This is a test. Resend is working correctly.",
             )
-            report["result"] = "OK — sent via SendGrid"
+            report["result"] = "OK — sent via Resend"
         elif SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL:
             _smtp_send(
                 "Test email from Brookhaven lead site",
                 "This is a test. SMTP is working correctly.",
             )
-            report["result"] = "OK — sent via SMTP"
+            report["result"] = "OK — sent via SMTP (fallback)"
         else:
             report["result"] = "SKIPPED — no complete email config found"
     except Exception as exc:
