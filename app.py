@@ -368,7 +368,7 @@ def search():
         ORDER BY
             CASE WHEN address ILIKE %s THEN 0 ELSE 1 END,
             full_market_value DESC NULLS LAST
-        LIMIT 10
+        LIMIT 50
     """, (address_pattern, city_zip_pattern, city_zip_pattern, address_pattern))
 
     data = [dict(r) for r in rows]
