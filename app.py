@@ -48,8 +48,9 @@ BROKER = {
     "tagline":     "Your local Brookhaven real estate expert.",
 }
 
-SITE_NAME   = "Brookhaven Home Values"
-SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "http://localhost:5000")  # no trailing slash
+SITE_NAME        = "Brookhaven Home Values"
+SITE_DOMAIN      = os.environ.get("SITE_DOMAIN", "http://localhost:5000")  # no trailing slash
+GOOGLE_MAPS_KEY  = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
 PROPERTIES_PER_PAGE = 30
 
@@ -211,11 +212,12 @@ def inject_globals():
     from datetime import datetime
     nav_areas = query("SELECT name, slug FROM areas ORDER BY name")
     return {
-        "broker":     BROKER,
-        "site_name":  SITE_NAME,
-        "site_domain": SITE_DOMAIN,
-        "nav_areas":  nav_areas,
-        "now":        datetime.now(),
+        "broker":           BROKER,
+        "site_name":        SITE_NAME,
+        "site_domain":      SITE_DOMAIN,
+        "nav_areas":        nav_areas,
+        "now":              datetime.now(),
+        "google_maps_key":  GOOGLE_MAPS_KEY,
     }
 
 def fmt_currency(value):
