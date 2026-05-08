@@ -248,7 +248,9 @@
 <section class="py-4 py-md-5 border-top">
   <div class="container">
     <h2 class="h4 fw-bold mb-3">Location</h2>
-    <div id="property-map" style="height:380px; border-radius:.5rem; overflow:hidden;"></div>
+    <div style="border-radius:.5rem; overflow:hidden; height:380px;">
+      <div id="property-map" style="height:100%; width:100%;"></div>
+    </div>
   </div>
 </section>
 {% endif %}
@@ -296,8 +298,10 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
 <script>
 (function () {
-  const lat = {{ prop.latitude }};
-  const lng = {{ prop.longitude }};
+  const lat = parseFloat('{{ prop.latitude }}');
+  const lng = parseFloat('{{ prop.longitude }}');
+  if (isNaN(lat) || isNaN(lng)) return;
+
   const map = L.map('property-map', { scrollWheelZoom: false }).setView([lat, lng], 17);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -309,6 +313,8 @@
     .addTo(map)
     .bindPopup('<strong>{{ prop.address }}</strong><br>{{ prop.city }}, NY {{ prop.zip }}')
     .openPopup();
+
+  setTimeout(function () { map.invalidateSize(); }, 100);
 })();
 </script>
 {% endif %}
