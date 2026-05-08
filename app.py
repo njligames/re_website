@@ -16,6 +16,7 @@ Production:
 import os
 import re
 import math
+import time
 import smtplib
 import logging
 import threading
@@ -51,6 +52,34 @@ SITE_NAME   = "Brookhaven Home Values"
 SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "http://localhost:5000")  # no trailing slash
 
 PROPERTIES_PER_PAGE = 30
+
+# ── Search cache ──────────────────────────────────────────────────────────────
+# Simple in-process dict cache: {query: (timestamp, results)}.
+# TTL 5 minutes, max 500 entries. Shared across requests within one worker.
+
+_search_cache: dict = {}
+_search_cache_lock = threading.Lock()
+_SEARCH_CACHE_TTL  = 300   # seconds
+_SEARCH_CACHE_MAX  = 500
+
+
+def _search_cache_get(q: str):
+    with _search_cache_lock:
+        entry = _search_cache.get(q)
+        if entry and (time.time() - entry[0]) < _SEARCH_CACHE_TTL:
+            return entry[1]
+        if entry:
+            del _search_cache[q]
+    return None
+
+
+def _search_cache_set(q: str, data) -> None:
+    with _search_cache_lock:
+        if len(_search_cache) >= _SEARCH_CACHE_MAX:
+            oldest = min(_search_cache, key=lambda k: _search_cache[k][0])
+            del _search_cache[oldest]
+        _search_cache[q] = (time.time(), data)
+
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 # Resend (https://resend.com — free 3,000 emails/month):
@@ -301,6 +330,10 @@ def search():
     if len(q) < 3:
         return jsonify([])
 
+    cached = _search_cache_get(q)
+    if cached is not None:
+        return jsonify(cached)
+
     rows = query("""
         SELECT address, city, zip, slug
         FROM properties
@@ -310,7 +343,9 @@ def search():
         LIMIT 10
     """, (q,))
 
-    return jsonify([dict(r) for r in rows])
+    data = [dict(r) for r in rows]
+    _search_cache_set(q, data)
+    return jsonify(data)
 
 
 @app.route("/property/<slug>")
