@@ -36,7 +36,7 @@ BROKER = {
     "title":       "Licensed Real Estate Salesperson",
     "license":     "NY License #000000",  # ← replace
     "phone":       "(631) 327-0064",      # ← replace
-    "email":       "you@yourdomain.com",  # ← replace
+    "email":       "jamesfolk1@gmail.com",  # ← replace
     "photo":       "broker.jpg",          # drop file in static/img/
     "brokerage":   "Your Brokerage Name", # ← replace
     "tagline":     "Your local Brookhaven real estate expert.",
