@@ -367,7 +367,7 @@ def search():
            OR zip     ILIKE %s
         ORDER BY
             CASE WHEN address ILIKE %s THEN 0 ELSE 1 END,
-            full_market_value DESC NULLS LAST
+            address
         LIMIT 50
     """, (address_pattern, city_zip_pattern, city_zip_pattern, address_pattern))
 
