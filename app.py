@@ -16,6 +16,9 @@ Production:
 import os
 import re
 import math
+import smtplib
+import logging
+from email.message import EmailMessage
 from datetime import datetime, timezone
 from flask import (
     Flask, render_template, request, jsonify,
@@ -46,6 +49,57 @@ SITE_NAME   = "Brookhaven Home Values"
 SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "http://localhost:5000")  # no trailing slash
 
 PROPERTIES_PER_PAGE = 30
+
+# ── Email / SMTP ──────────────────────────────────────────────────────────────
+# Set these environment variables to enable lead notification emails.
+#
+#   SMTP_HOST     — e.g. smtp.gmail.com
+#   SMTP_PORT     — e.g. 587 (STARTTLS) or 465 (SSL)
+#   SMTP_USER     — your login address
+#   SMTP_PASSWORD — app password (Gmail) or SMTP password
+#   NOTIFY_EMAIL  — where to send lead alerts (defaults to SMTP_USER)
+
+SMTP_HOST     = os.environ.get("SMTP_HOST", "")
+SMTP_PORT     = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER     = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+NOTIFY_EMAIL  = os.environ.get("NOTIFY_EMAIL", SMTP_USER)
+
+
+def send_lead_email(lead: dict) -> None:
+    """Fire-and-forget SMTP notification. Logs on failure, never raises."""
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL):
+        return
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = f"New Lead: {lead['name']} — {lead.get('address') or 'no address'}"
+        msg["From"]    = SMTP_USER
+        msg["To"]      = NOTIFY_EMAIL
+
+        body_lines = [
+            f"Name:     {lead['name']}",
+            f"Email:    {lead['email']}",
+            f"Phone:    {lead.get('phone') or '—'}",
+            f"Address:  {lead.get('address') or '—'}",
+            f"Timeline: {lead.get('timeline') or '—'}",
+            f"Message:  {lead.get('message') or '—'}",
+            f"Type:     {lead.get('lead_type', 'valuation')}",
+        ]
+        msg.set_content("\n".join(body_lines))
+
+        if SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as s:
+                s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+                s.ehlo()
+                s.starttls()
+                s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+    except Exception:
+        logging.exception("Failed to send lead notification email")
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -354,6 +408,16 @@ def capture_lead():
             row = cur.fetchone()
     finally:
         conn.close()
+
+    send_lead_email({
+        "name":      name,
+        "email":     email,
+        "phone":     phone,
+        "address":   address,
+        "timeline":  data.get("timeline", ""),
+        "message":   message,
+        "lead_type": lead_type,
+    })
 
     return jsonify({"success": True, "id": row["id"]}), 201
 
