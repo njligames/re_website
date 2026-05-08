@@ -325,23 +325,51 @@ def index():
 
 @app.route("/search")
 def search():
-    """Full-text property search — returns JSON for the search bar."""
+    """Address-aware property search — returns JSON for the search bar.
+
+    Matching rules (all case-insensitive):
+      "70"      → addresses whose house number is exactly 70  (e.g. "70 Oak St")
+                  i.e. address ILIKE '70 %'  — avoids matching "700 Main St"
+      "70 ca"   → addresses that start with "70 ca"           (e.g. "70 Capri Dr")
+                  i.e. address ILIKE '70 ca%'
+      "oak"     → addresses / cities that contain "oak"
+                  i.e. address ILIKE '%oak%'
+      "11772"   → zip code prefix match
+    """
     q = request.args.get("q", "").strip()
-    if len(q) < 3:
+    if len(q) < 2:
         return jsonify([])
 
     cached = _search_cache_get(q)
     if cached is not None:
         return jsonify(cached)
 
+    first_token = q.split()[0]
+
+    if first_token.isdigit():
+        if q == first_token:
+            # Pure number → exact house-number match: "70" matches "70 Oak" not "700 Oak"
+            address_pattern = q + " %"
+        else:
+            # Number + street prefix → prefix match: "70 ca" matches "70 Capri…"
+            address_pattern = q + "%"
+    else:
+        # Text-only → substring match anywhere in address/city
+        address_pattern = "%" + q + "%"
+
+    city_zip_pattern = "%" + q + "%"
+
     rows = query("""
         SELECT address, city, zip, slug
         FROM properties
-        WHERE to_tsvector('english', address || ' ' || COALESCE(city,'') || ' ' || COALESCE(zip,''))
-              @@ plainto_tsquery('english', %s)
-        ORDER BY full_market_value DESC NULLS LAST
+        WHERE address ILIKE %s
+           OR city    ILIKE %s
+           OR zip     ILIKE %s
+        ORDER BY
+            CASE WHEN address ILIKE %s THEN 0 ELSE 1 END,
+            full_market_value DESC NULLS LAST
         LIMIT 10
-    """, (q,))
+    """, (address_pattern, city_zip_pattern, city_zip_pattern, address_pattern))
 
     data = [dict(r) for r in rows]
     _search_cache_set(q, data)
