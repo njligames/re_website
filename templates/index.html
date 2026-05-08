@@ -36,7 +36,11 @@
           <input type="text" id="search-input" class="form-control"
                  placeholder="Enter an address, street, or ZIP code…"
                  autocomplete="off">
-          <button class="btn btn-warning fw-bold px-4" id="search-btn">Search</button>
+          <button class="btn btn-warning fw-bold px-4" id="search-btn">
+            <span id="search-btn-text">Search</span>
+            <span id="search-spinner" class="spinner-border spinner-border-sm d-none ms-1"
+                  role="status" aria-hidden="true"></span>
+          </button>
         </div>
         <ul id="search-results" class="list-group text-start mt-1 shadow-sm d-none"></ul>
       </div>
@@ -160,11 +164,22 @@
 const input   = document.getElementById('search-input');
 const results = document.getElementById('search-results');
 const btn     = document.getElementById('search-btn');
+const spinner = document.getElementById('search-spinner');
 let timer;
+
+function setLoading(on) {
+  spinner.classList.toggle('d-none', !on);
+  btn.disabled = on;
+  input.style.cursor = on ? 'wait' : '';
+}
 
 function doSearch() {
   const q = input.value.trim();
   if (q.length < 3) { results.classList.add('d-none'); return; }
+
+  setLoading(true);
+  results.classList.add('d-none');
+
   fetch('/search?q=' + encodeURIComponent(q))
     .then(r => r.json())
     .then(data => {
@@ -183,7 +198,12 @@ function doSearch() {
         });
       }
       results.classList.remove('d-none');
-    });
+    })
+    .catch(() => {
+      results.innerHTML = '<li class="list-group-item text-danger">Search unavailable. Please try again.</li>';
+      results.classList.remove('d-none');
+    })
+    .finally(() => setLoading(false));
 }
 
 input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(doSearch, 250); });
