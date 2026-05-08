@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+{% if prop.latitude and prop.longitude %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endif %}
+{% endblock %}
+
 {% block structured_data %}
 <script type="application/ld+json">
 {
@@ -230,17 +237,21 @@
       <div class="col-lg-5">
         {% include "_broker_card.html" %}
 
-        {% if prop.latitude and prop.longitude %}
-        <div class="mt-3 text-muted small">
-          <strong>Coordinates:</strong>
-          {{ "%.5f"|format(prop.latitude) }}, {{ "%.5f"|format(prop.longitude) }}
-        </div>
-        {% endif %}
       </div>
 
     </div>
   </div>
 </section>
+
+{# ── Map ── #}
+{% if prop.latitude and prop.longitude %}
+<section class="py-4 py-md-5 border-top">
+  <div class="container">
+    <h2 class="h4 fw-bold mb-3">Location</h2>
+    <div id="property-map" style="height:380px; border-radius:.5rem; overflow:hidden;"></div>
+  </div>
+</section>
+{% endif %}
 
 {# ── Lead form ── #}
 <section class="py-4 py-md-5 bg-light" id="lead-form">
@@ -277,4 +288,28 @@
 </section>
 {% endif %}
 
+{% endblock %}
+
+{% block scripts %}
+{% if prop.latitude and prop.longitude %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+<script>
+(function () {
+  const lat = {{ prop.latitude }};
+  const lng = {{ prop.longitude }};
+  const map = L.map('property-map', { scrollWheelZoom: false }).setView([lat, lng], 17);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  L.marker([lat, lng])
+    .addTo(map)
+    .bindPopup('<strong>{{ prop.address }}</strong><br>{{ prop.city }}, NY {{ prop.zip }}')
+    .openPopup();
+})();
+</script>
+{% endif %}
 {% endblock %}
