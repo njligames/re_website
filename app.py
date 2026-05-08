@@ -431,6 +431,48 @@ def capture_lead():
     return jsonify({"success": True, "id": row["id"]}), 201
 
 
+# ── Email diagnostics (remove before going public) ────────────────────────────
+
+@app.route("/api/test-email")
+def test_email():
+    """Hit this URL to test SMTP config. Returns a JSON report."""
+    report = {
+        "SMTP_HOST":    SMTP_HOST     or "(not set)",
+        "SMTP_PORT":    SMTP_PORT,
+        "SMTP_USER":    SMTP_USER     or "(not set)",
+        "SMTP_PASSWORD": "set" if SMTP_PASSWORD else "(not set)",
+        "NOTIFY_EMAIL": NOTIFY_EMAIL  or "(not set)",
+    }
+
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL):
+        report["result"] = "SKIPPED — one or more required env vars are missing"
+        return jsonify(report)
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "Test email from Brookhaven lead site"
+        msg["From"]    = SMTP_USER
+        msg["To"]      = NOTIFY_EMAIL
+        msg.set_content("This is a test email. SMTP is working correctly.")
+
+        if SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as s:
+                s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as s:
+                s.ehlo()
+                s.starttls()
+                s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg)
+
+        report["result"] = "OK — email sent successfully"
+    except Exception as exc:
+        report["result"] = f"FAILED — {type(exc).__name__}: {exc}"
+
+    return jsonify(report)
+
+
 # ── SEO utilities ─────────────────────────────────────────────────────────────
 
 @app.route("/sitemap.xml")
