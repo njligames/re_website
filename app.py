@@ -18,6 +18,7 @@ import re
 import math
 import smtplib
 import logging
+import threading
 from email.message import EmailMessage
 from datetime import datetime, timezone
 from flask import (
@@ -65,12 +66,12 @@ SMTP_USER     = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 NOTIFY_EMAIL  = os.environ.get("NOTIFY_EMAIL", SMTP_USER)
 
+if not SMTP_HOST:
+    logging.warning("SMTP_HOST not set — lead email notifications are disabled.")
 
-def send_lead_email(lead: dict) -> None:
-    """Fire-and-forget SMTP notification. Logs on failure, never raises."""
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL):
-        return
 
+def _smtp_send(lead: dict) -> None:
+    """Blocking SMTP send — called from a daemon thread."""
     try:
         msg = EmailMessage()
         msg["Subject"] = f"New Lead: {lead['name']} — {lead.get('address') or 'no address'}"
@@ -89,17 +90,25 @@ def send_lead_email(lead: dict) -> None:
         msg.set_content("\n".join(body_lines))
 
         if SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as s:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as s:
                 s.login(SMTP_USER, SMTP_PASSWORD)
                 s.send_message(msg)
         else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as s:
                 s.ehlo()
                 s.starttls()
                 s.login(SMTP_USER, SMTP_PASSWORD)
                 s.send_message(msg)
     except Exception:
         logging.exception("Failed to send lead notification email")
+
+
+def send_lead_email(lead: dict) -> None:
+    """Dispatch email in a background thread so the HTTP response is never delayed."""
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and NOTIFY_EMAIL):
+        return
+    t = threading.Thread(target=_smtp_send, args=(lead,), daemon=True)
+    t.start()
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
