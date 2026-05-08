@@ -167,38 +167,63 @@ const btn     = document.getElementById('search-btn');
 const spinner = document.getElementById('search-spinner');
 let timer;
 
+// Client-side LRU cache: keyed by query, max 50 entries, 5-minute TTL.
+const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_MAX = 50;
+const searchCache = new Map();
+
+function cacheGet(q) {
+  const entry = searchCache.get(q);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) { searchCache.delete(q); return null; }
+  return entry.data;
+}
+
+function cacheSet(q, data) {
+  if (searchCache.size >= CACHE_MAX) {
+    searchCache.delete(searchCache.keys().next().value); // evict oldest
+  }
+  searchCache.set(q, { data, ts: Date.now() });
+}
+
 function setLoading(on) {
   spinner.classList.toggle('d-none', !on);
   btn.disabled = on;
   input.style.cursor = on ? 'wait' : '';
 }
 
+function renderResults(data) {
+  results.innerHTML = '';
+  if (!data.length) {
+    results.innerHTML = '<li class="list-group-item text-muted">No results found.</li>';
+  } else {
+    data.forEach(p => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item list-group-item-action';
+      li.innerHTML = `<a href="/property/${p.slug}" class="text-decoration-none text-dark">
+        <strong>${p.address}</strong>
+        <span class="text-muted ms-2 small">${p.city}, NY ${p.zip}</span>
+      </a>`;
+      results.appendChild(li);
+    });
+  }
+  results.classList.remove('d-none');
+}
+
 function doSearch() {
   const q = input.value.trim();
   if (q.length < 3) { results.classList.add('d-none'); return; }
+
+  // Serve from cache instantly if available.
+  const cached = cacheGet(q);
+  if (cached) { renderResults(cached); return; }
 
   setLoading(true);
   results.classList.add('d-none');
 
   fetch('/search?q=' + encodeURIComponent(q))
     .then(r => r.json())
-    .then(data => {
-      results.innerHTML = '';
-      if (!data.length) {
-        results.innerHTML = '<li class="list-group-item text-muted">No results found.</li>';
-      } else {
-        data.forEach(p => {
-          const li = document.createElement('li');
-          li.className = 'list-group-item list-group-item-action';
-          li.innerHTML = `<a href="/property/${p.slug}" class="text-decoration-none text-dark">
-            <strong>${p.address}</strong>
-            <span class="text-muted ms-2 small">${p.city}, NY ${p.zip}</span>
-          </a>`;
-          results.appendChild(li);
-        });
-      }
-      results.classList.remove('d-none');
-    })
+    .then(data => { cacheSet(q, data); renderResults(data); })
     .catch(() => {
       results.innerHTML = '<li class="list-group-item text-danger">Search unavailable. Please try again.</li>';
       results.classList.remove('d-none');
